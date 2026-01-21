@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Lobby</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <h1 class="title">Lobby</h1>
+
+    <style>
+        .container {
+            max-width: 900px !important;
+        }
+
+        .lobby-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .left-panel {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .right-panel {
+            width: 300px;
+            flex-shrink: 0;
+        }
+
+        .chat-box {
+            height: 400px;
+            /* Override global height if needed, but 500px is fine too. Let's keep consistent style but maybe restrict height for lobby */
+            width: 100%;
+        }
+
+        #chatForm {
+            padding: 10px;
+            background: #eee;
+            border-top: 2px solid #000;
+        }
+    </style>
+
+    <div class="container">
+
+        <div class="lobby-content">
+            <!-- Left Panel: Room Info & Players -->
+            <div class="left-panel">
+                <h2>Room ID: <span id="roomCode" style="color: var(--secondary-color);"></span></h2>
+
+                <h3>Players:</h3>
+                <div id="playerList" style="text-align: left; margin-top: 1rem;"></div>
+
+                <br>
+                <button class="btn" id="startBtn">Start Game</button>
+                <!-- Link Container will be appended here by script -->
+                <div id="linkArea" style="margin-top: 1rem;"></div>
+            </div>
+
+            <!-- Right Panel: Chat -->
+            <div class="right-panel">
+                <div class="chat-box">
+                    <div id="messages"></div>
+                    <form id="chatForm">
+                        <input id="chatInput" class="input" autocomplete="off" placeholder="Type here..."
+                            style="margin-bottom:0;" />
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const roomId = localStorage.getItem("roomId");
+        const name = localStorage.getItem("playerName");
+        let TOKEN = localStorage.getItem("playerToken");
+
+        document.getElementById("roomCode").innerText = roomId;
+
+        socket.emit("joinRoom", { roomId, name, token: TOKEN }, (res) => {
+            if (!res.ok) return alert(res.err);
+            render(res.room);
+        });
+
+        socket.on("roomUpdate", room => render(room));
+        socket.on("roundStarted", () => location.href = 'game.html');
+
+        // Chat Logic
+        const chatForm = document.getElementById("chatForm");
+        const chatInput = document.getElementById("chatInput");
+        const messages = document.getElementById("messages");
+
+        chatForm.onsubmit = (e) => {
+            e.preventDefault();
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            socket.emit("chatMessage", { roomId, message: text });
+            chatInput.value = "";
+        };
+
+        socket.on("chatMessage", (msg) => {
+            const div = document.createElement("div");
+            div.innerHTML = `<strong>${msg.from}:</strong> ${msg.text}`;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        });
+
+        function render(room) {
+            document.getElementById("playerList").innerHTML =
+                room.players.map(p => `<div class="player">${p.name} - ${p.score}</div>`).join("");
+
+            const startBtn = document.getElementById("startBtn");
+            if (socket.id === room.host) {
+                startBtn.style.display = "block";
+            } else {
+                startBtn.style.display = "none";
+            }
+        }
+
+        startBtn.onclick = () => {
+            socket.emit("startGame", { roomId }, (res) => {
+                if (res && !res.ok) alert("Failed to start game");
+            });
+        }
+
+        // Generate and display room link
+        const linkContainer = document.createElement("div");
+        linkContainer.style.display = "flex";
+        linkContainer.style.flexDirection = "column";
+        linkContainer.style.alignItems = "center";
+        linkContainer.style.gap = "0.5rem";
+
+        const linkInput = document.createElement("input");
+        linkInput.type = "text";
+        linkInput.readOnly = true;
+        linkInput.value = window.location.origin + '/join.html?room=' + roomId;
+        linkInput.className = "input";
+        linkInput.style.width = "100%";
+        // linkInput.style.maxWidth = "300px"; // Let it fill
+        linkInput.style.textAlign = "center";
+        linkInput.style.fontSize = "0.9rem";
+        linkInput.style.cursor = "pointer";
+
+        const copyBtn = document.createElement("button");
+        copyBtn.innerText = "Copy Link";
+        copyBtn.className = "btn btn-secondary";
+        copyBtn.style.fontSize = "0.9rem";
+        copyBtn.style.padding = "0.5rem 1rem";
+
+        copyBtn.onclick = () => {
+            linkInput.select();
+            linkInput.setSelectionRange(0, 99999); // For mobile devices
+            navigator.clipboard.writeText(linkInput.value).then(() => {
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => copyBtn.innerText = originalText, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert("Failed to copy link");
+            });
+        };
+
+        // Also copy on input click
+        linkInput.onclick = () => {
+            linkInput.select();
+            document.execCommand("copy"); // Fallback
+            navigator.clipboard.writeText(linkInput.value);
+        }
+
+        linkContainer.appendChild(linkInput);
+        linkContainer.appendChild(copyBtn);
+
+        // Append to specific area
+        document.getElementById("linkArea").appendChild(linkContainer);
+    </script>
+
+</body>
+
+</html>

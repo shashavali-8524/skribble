@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Skribbl Clone</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <h1 class="title">skribbl</h1>
+
+  <div class="container" style="text-align:center;">
+    <div class="avatar-section" style="margin-bottom: 2rem;">
+      <div id="avatarDisplay" style="font-size: 4rem; margin-bottom: 1rem;">😐</div>
+
+      <div class="avatar-grid"
+        style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; justify-content: center; max-width: 300px; margin: 0 auto;">
+        <div class="avatar-option" onclick="selectAvatar('😐')">😐</div>
+        <div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
+        <div class="avatar-option" onclick="selectAvatar('🤠')">🤠</div>
+        <div class="avatar-option" onclick="selectAvatar('🥳')">🥳</div>
+        <div class="avatar-option" onclick="selectAvatar('👽')">👽</div>
+        <div class="avatar-option" onclick="selectAvatar('🤖')">🤖</div>
+        <div class="avatar-option" onclick="selectAvatar('🐶')">🐶</div>
+        <div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
+        <div class="avatar-option" onclick="selectAvatar('🦊')">🦊</div>
+        <div class="avatar-option" onclick="selectAvatar('🐸')">🐸</div>
+      </div>
+    </div>
+
+    <input id="playerName" class="input" placeholder="Enter your name" style="text-align: center; font-weight: bold;" />
+
+    <button class="btn" onclick="saveAndGo('create.html')" style="margin-bottom: 1rem;">Create Private Room</button>
+    <button class="btn btn-secondary" onclick="saveAndGo('join.html')">Join Room</button>
+  </div>
+
+  <script>
+    // Avatar Logic
+    let selectedAvatar = "😐";
+
+    // Load saved data
+    const savedName = localStorage.getItem("playerName");
+    if (savedName) document.getElementById("playerName").value = savedName;
+
+    const savedAvatar = localStorage.getItem("playerAvatar");
+    if (savedAvatar) {
+      selectedAvatar = savedAvatar;
+      document.getElementById("avatarDisplay").innerText = selectedAvatar;
+    }
+
+    function selectAvatar(avatar) {
+      selectedAvatar = avatar;
+      document.getElementById("avatarDisplay").innerText = avatar;
+      localStorage.setItem("playerAvatar", avatar);
+    }
+
+    function saveAndGo(url) {
+      const name = document.getElementById("playerName").value.trim();
+      if (!name) return alert("Please enter your name!");
+      localStorage.setItem("playerName", name);
+      localStorage.setItem("playerAvatar", selectedAvatar);
+      location.href = url;
+    }
+  </script>
+
+</body>
+
+</html>

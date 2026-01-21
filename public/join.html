@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Join Room</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <h1 class="title">Join Room</h1>
+
+  <div class="container">
+    <h3 id="displayName" style="margin-bottom: 1rem;"></h3>
+
+    <label>Room Code</label>
+    <input id="roomId" class="input" placeholder="Enter room code" />
+
+    <br><br>
+    <button class="btn" id="joinBtn">Join Room</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    let TOKEN = localStorage.getItem("playerToken");
+    if (!TOKEN) { TOKEN = crypto.randomUUID(); localStorage.setItem("playerToken", TOKEN); }
+
+    const name = localStorage.getItem("playerName");
+    const nameInputGroup = document.getElementById("nameInputGroup");
+
+    if (name) {
+      document.getElementById("displayName").innerText = "Hi, " + name;
+    } else {
+      // Create name input dynamically if not exists (or just unhide a hidden one, 
+      // but since I'm editing the whole file structure might be hard, so I'll inject logic)
+      // Actually, let's just create elements if they don't exist in a cleaner way.
+      // Wait, I can just modify the HTML body too.
+      // Let's assume I'll inject the input field via JS or modify the HTML above in a separate call?
+      // No, I can't modify multiple parts easily.
+      // Let's just use the "displayName" container to inject the input.
+      document.getElementById("displayName").innerHTML = `
+            <label>Your Name</label>
+            <input id="newPlayerName" class="input" placeholder="Enter your name" style="margin-bottom: 1rem;" />
+        `;
+    }
+
+    // Auto-fill room ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    if (roomParam) {
+      document.getElementById("roomId").value = roomParam;
+    }
+
+    document.getElementById("joinBtn").onclick = () => {
+      let currentName = localStorage.getItem("playerName");
+
+      // If no name stored, check the input
+      if (!currentName) {
+        const nameInput = document.getElementById("newPlayerName");
+        if (nameInput) {
+          currentName = nameInput.value.trim();
+          if (currentName) {
+            localStorage.setItem("playerName", currentName);
+            localStorage.setItem("playerAvatar", "😐"); // Default avatar
+          }
+        }
+      }
+
+      if (!currentName) return alert("Please enter your name");
+
+      const roomId = document.getElementById("roomId").value;
+
+      socket.emit("joinRoom", { roomId, name: currentName, token: TOKEN }, (res) => {
+        if (!res.ok) return alert(res.err);
+        if (res.token) { localStorage.setItem("playerToken", res.token); }
+        localStorage.setItem("roomId", roomId);
+        location.href = 'lobby.html';
+      });
+    }
+  </script>
+
+</body>
+
+</html>

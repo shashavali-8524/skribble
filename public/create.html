@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Create Room</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <h1 class="title">Create Room</h1>
+
+  <div class="container">
+    <h3 id="displayName" style="margin-bottom: 1rem;"></h3>
+
+    <label>Rounds</label>
+    <select id="rounds">
+      <option>3</option>
+      <option>5</option>
+      <option>8</option>
+    </select>
+
+    <label>Max Players</label>
+    <select id="players">
+      <option>4</option>
+      <option>6</option>
+      <option>10</option>
+    </select>
+
+    <label>Guess Time (seconds)</label>
+    <select id="time">
+      <option>60</option>
+      <option>45</option>
+      <option>90</option>
+    </select>
+
+    <br><br>
+    <button id="createBtn" class="btn">Create Room</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const name = localStorage.getItem("playerName");
+    if (name) document.getElementById("displayName").innerText = "Hi, " + name;
+
+    document.getElementById("createBtn").onclick = () => {
+      const rounds = document.getElementById("rounds").value;
+      const maxPlayers = document.getElementById("players").value;
+      const guessTime = document.getElementById("time").value;
+
+      if (!name) return alert("Please go back and enter your name");
+
+      socket.emit("createRoom", {
+        name,
+        settings: {
+          rounds: Number(rounds),
+          maxPlayers: Number(maxPlayers),
+          guessTime: Number(guessTime)
+        }
+      }, (res) => {
+        if (!res.ok) return alert("Room create failed");
+
+        // save for game
+        localStorage.setItem("roomId", res.roomId);
+        if (res.token) localStorage.setItem("playerToken", res.token); // 🔥 FIX: Save Token!
+
+        location.href = "lobby.html";
+      });
+    };
+  </script>
+</body>
+
+</html>
