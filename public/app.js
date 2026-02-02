@@ -72,6 +72,36 @@ canvas.addEventListener("mousemove", (e) => {
 canvas.addEventListener("mouseup", () => (drawing = false));
 canvas.addEventListener("mouseleave", () => (drawing = false));
 
+// ======================================
+// TOUCH EVENTS (Mobile Support)
+// ======================================
+function getTouchPos(canvasDom, touchEvent) {
+  const rect = canvasDom.getBoundingClientRect();
+  return {
+    x: touchEvent.touches[0].clientX - rect.left,
+    y: touchEvent.touches[0].clientY - rect.top
+  };
+}
+
+canvas.addEventListener("touchstart", (e) => {
+  if (!canDraw) return;
+  e.preventDefault(); // Prevent scrolling
+  drawing = true;
+  const pos = getTouchPos(canvas, e);
+  [lastX, lastY] = [pos.x, pos.y];
+}, { passive: false });
+
+canvas.addEventListener("touchmove", (e) => {
+  if (!drawing || !canDraw) return;
+  e.preventDefault(); // Prevent scrolling
+
+  const pos = getTouchPos(canvas, e);
+  drawLine(lastX, lastY, pos.x, pos.y, true);
+  [lastX, lastY] = [pos.x, pos.y];
+}, { passive: false });
+
+canvas.addEventListener("touchend", () => (drawing = false));
+
 function drawLine(x0, y0, x1, y1, emit) {
   ctx.beginPath();
   ctx.moveTo(x0, y0);
