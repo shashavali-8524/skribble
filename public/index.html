@@ -1,21 +1,19 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <title>Skribbl Clone</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>Skribbl - Draw & Guess</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
   <h1 class="title">skribbl</h1>
 
-  <div class="container" style="text-align:center;">
-    <div class="avatar-section" style="margin-bottom: 2rem;">
-      <div id="avatarDisplay" style="font-size: 4rem; margin-bottom: 1rem;">😐</div>
-
-      <div class="avatar-grid"
-        style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; justify-content: center; max-width: 300px; margin: 0 auto;">
+  <div class="container">
+    <div class="avatar-section">
+      <div id="avatarDisplay" class="avatar-display">😐</div>
+      <div class="avatar-grid">
         <div class="avatar-option" onclick="selectAvatar('😐')">😐</div>
         <div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
         <div class="avatar-option" onclick="selectAvatar('🤠')">🤠</div>
@@ -29,41 +27,63 @@
       </div>
     </div>
 
-    <input id="playerName" class="input" placeholder="Enter your name" style="text-align: center; font-weight: bold;" />
+    <input id="playerName" class="input" placeholder="Enter your name" maxlength="20"
+      style="text-align: center; font-weight: bold;" autocomplete="off" />
 
     <button class="btn" onclick="saveAndGo('create.html')" style="margin-bottom: 1rem;">Create Private Room</button>
     <button class="btn btn-secondary" onclick="saveAndGo('join.html')">Join Room</button>
   </div>
 
+  <footer class="footer">
+    Made by <a href="https://www.linkedin.com/in/shasha-vali-ab539428a/" target="_blank" rel="noopener">Shasha Vali</a>
+  </footer>
+
   <script>
-    // Avatar Logic
-    let selectedAvatar = "😐";
-
-    // Load saved data
+    let selectedAvatar = localStorage.getItem("playerAvatar") || "😐";
     const savedName = localStorage.getItem("playerName");
-    if (savedName) document.getElementById("playerName").value = savedName;
 
-    const savedAvatar = localStorage.getItem("playerAvatar");
-    if (savedAvatar) {
-      selectedAvatar = savedAvatar;
-      document.getElementById("avatarDisplay").innerText = selectedAvatar;
-    }
+    if (savedName) document.getElementById("playerName").value = savedName;
+    document.getElementById("avatarDisplay").innerText = selectedAvatar;
+
+    // Highlight saved avatar
+    document.querySelectorAll(".avatar-option").forEach(el => {
+      if (el.innerText === selectedAvatar) el.classList.add("selected");
+    });
 
     function selectAvatar(avatar) {
       selectedAvatar = avatar;
       document.getElementById("avatarDisplay").innerText = avatar;
       localStorage.setItem("playerAvatar", avatar);
+      document.querySelectorAll(".avatar-option").forEach(el => {
+        el.classList.toggle("selected", el.innerText === avatar);
+      });
     }
 
     function saveAndGo(url) {
       const name = document.getElementById("playerName").value.trim();
-      if (!name) return alert("Please enter your name!");
+      if (!name) {
+        document.getElementById("playerName").focus();
+        document.getElementById("playerName").style.borderColor = "#ff4757";
+        return;
+      }
+      if (name.length < 2) {
+        document.getElementById("playerName").style.borderColor = "#ff4757";
+        return;
+      }
       localStorage.setItem("playerName", name);
       localStorage.setItem("playerAvatar", selectedAvatar);
       location.href = url;
     }
+
+    // Enter key support
+    document.getElementById("playerName").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") saveAndGo("create.html");
+    });
+
+    // Clear error styling on input
+    document.getElementById("playerName").addEventListener("input", (e) => {
+      e.target.style.borderColor = "#ddd";
+    });
   </script>
-
 </body>
-
 </html>

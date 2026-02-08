@@ -1,74 +1,82 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <title>Create Room</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>Create Room - Skribbl</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+
   <h1 class="title">Create Room</h1>
 
   <div class="container">
-    <h3 id="displayName" style="margin-bottom: 1rem;"></h3>
+    <h3 id="displayName" style="margin-bottom: 1rem; color: var(--secondary-color);"></h3>
 
     <label>Rounds</label>
     <select id="rounds">
-      <option>3</option>
-      <option>5</option>
-      <option>8</option>
+      <option value="3" selected>3 Rounds</option>
+      <option value="5">5 Rounds</option>
+      <option value="8">8 Rounds</option>
+      <option value="10">10 Rounds</option>
     </select>
 
     <label>Max Players</label>
     <select id="players">
-      <option>4</option>
-      <option>6</option>
-      <option>10</option>
+      <option value="4">4 Players</option>
+      <option value="6" selected>6 Players</option>
+      <option value="8">8 Players</option>
+      <option value="10">10 Players</option>
     </select>
 
-    <label>Guess Time (seconds)</label>
+    <label>Guess Time</label>
     <select id="time">
-      <option>60</option>
-      <option>45</option>
-      <option>90</option>
+      <option value="30">30 seconds</option>
+      <option value="45">45 seconds</option>
+      <option value="60" selected>60 seconds</option>
+      <option value="90">90 seconds</option>
+      <option value="120">120 seconds</option>
     </select>
 
-    <br><br>
-    <button id="createBtn" class="btn">Create Room</button>
+    <button id="createBtn" class="btn" style="margin-top: 0.5rem;">Create Room</button>
+    <button class="btn btn-secondary" style="margin-top: 0.8rem; font-size: 1rem;" onclick="location.href='index.html'">← Back</button>
   </div>
+
+  <footer class="footer">Made by <a href="https://www.linkedin.com/in/shasha-vali-ab539428a/" target="_blank" rel="noopener">Shasha Vali</a></footer>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-
     const name = localStorage.getItem("playerName");
-    if (name) document.getElementById("displayName").innerText = "Hi, " + name;
+    const avatar = localStorage.getItem("playerAvatar") || "😐";
+
+    if (!name) { alert("Please enter your name first!"); location.href = "index.html"; }
+    else document.getElementById("displayName").innerText = `${avatar} ${name}`;
 
     document.getElementById("createBtn").onclick = () => {
-      const rounds = document.getElementById("rounds").value;
-      const maxPlayers = document.getElementById("players").value;
-      const guessTime = document.getElementById("time").value;
-
-      if (!name) return alert("Please go back and enter your name");
+      const btn = document.getElementById("createBtn");
+      btn.disabled = true;
+      btn.innerText = "Creating...";
 
       socket.emit("createRoom", {
         name,
+        avatar,
         settings: {
-          rounds: Number(rounds),
-          maxPlayers: Number(maxPlayers),
-          guessTime: Number(guessTime)
+          rounds: Number(document.getElementById("rounds").value),
+          maxPlayers: Number(document.getElementById("players").value),
+          guessTime: Number(document.getElementById("time").value)
         }
       }, (res) => {
-        if (!res.ok) return alert("Room create failed");
+        btn.disabled = false;
+        btn.innerText = "Create Room";
 
-        // save for game
+        if (!res.ok) return alert(res.err || "Failed to create room");
+
         localStorage.setItem("roomId", res.roomId);
-        if (res.token) localStorage.setItem("playerToken", res.token); // 🔥 FIX: Save Token!
-
+        if (res.token) localStorage.setItem("playerToken", res.token);
         location.href = "lobby.html";
       });
     };
   </script>
 </body>
-
 </html>

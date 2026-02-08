@@ -1,86 +1,130 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <title>Join Room</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>Join Room - Skribbl</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
   <h1 class="title">Join Room</h1>
 
   <div class="container">
-    <h3 id="displayName" style="margin-bottom: 1rem;"></h3>
+    <div id="nameSection"></div>
 
     <label>Room Code</label>
-    <input id="roomId" class="input" placeholder="Enter room code" />
+    <input id="roomId" class="input" placeholder="Enter room code" maxlength="10"
+      style="text-align: center; font-weight: bold; text-transform: uppercase; font-size: 1.4rem; letter-spacing: 4px;"
+      autocomplete="off" />
 
-    <br><br>
-    <button class="btn" id="joinBtn">Join Room</button>
+    <div id="roomStatus" style="margin-bottom: 1rem; font-size: 0.9rem; min-height: 1.5em;"></div>
+
+    <button class="btn" id="joinBtn" style="margin-bottom: 0.8rem;">Join Room</button>
+    <button class="btn btn-secondary" style="font-size: 1rem;" onclick="location.href='index.html'">← Back</button>
   </div>
+
+  <footer class="footer">Made by <a href="https://www.linkedin.com/in/shasha-vali-ab539428a/" target="_blank" rel="noopener">Shasha Vali</a></footer>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-
     let TOKEN = localStorage.getItem("playerToken");
     if (!TOKEN) { TOKEN = crypto.randomUUID(); localStorage.setItem("playerToken", TOKEN); }
 
     const name = localStorage.getItem("playerName");
-    const nameInputGroup = document.getElementById("nameInputGroup");
+    const avatar = localStorage.getItem("playerAvatar") || "😐";
+    const nameSection = document.getElementById("nameSection");
 
     if (name) {
-      document.getElementById("displayName").innerText = "Hi, " + name;
+      nameSection.innerHTML = `<h3 style="margin-bottom: 1rem; color: var(--secondary-color);">${avatar} ${name}</h3>`;
     } else {
-      // Create name input dynamically if not exists (or just unhide a hidden one, 
-      // but since I'm editing the whole file structure might be hard, so I'll inject logic)
-      // Actually, let's just create elements if they don't exist in a cleaner way.
-      // Wait, I can just modify the HTML body too.
-      // Let's assume I'll inject the input field via JS or modify the HTML above in a separate call?
-      // No, I can't modify multiple parts easily.
-      // Let's just use the "displayName" container to inject the input.
-      document.getElementById("displayName").innerHTML = `
-            <label>Your Name</label>
-            <input id="newPlayerName" class="input" placeholder="Enter your name" style="margin-bottom: 1rem;" />
-        `;
+      nameSection.innerHTML = `
+        <label>Your Name</label>
+        <input id="newPlayerName" class="input" placeholder="Enter your name" maxlength="20"
+          style="text-align: center; font-weight: bold;" autocomplete="off" />
+      `;
     }
 
     // Auto-fill room ID from URL
     const urlParams = new URLSearchParams(window.location.search);
     const roomParam = urlParams.get('room');
     if (roomParam) {
-      document.getElementById("roomId").value = roomParam;
+      document.getElementById("roomId").value = roomParam.toUpperCase();
+      checkRoom(roomParam);
+    }
+
+    // Live room check as user types
+    let checkTimeout;
+    document.getElementById("roomId").addEventListener("input", (e) => {
+      e.target.value = e.target.value.toUpperCase();
+      clearTimeout(checkTimeout);
+      const val = e.target.value.trim();
+      if (val.length >= 4) {
+        checkTimeout = setTimeout(() => checkRoom(val), 300);
+      } else {
+        document.getElementById("roomStatus").innerHTML = "";
+      }
+    });
+
+    function checkRoom(code) {
+      socket.emit("checkRoom", { roomId: code }, (res) => {
+        const el = document.getElementById("roomStatus");
+        if (res.exists) {
+          if (res.gameStarted) {
+            el.innerHTML = `<span style="color: orange;">⚠️ Game in progress (${res.playerCount}/${res.maxPlayers})</span>`;
+          } else {
+            el.innerHTML = `<span style="color: green;">✅ Room found! (${res.playerCount}/${res.maxPlayers} players)</span>`;
+          }
+        } else {
+          el.innerHTML = `<span style="color: red;">❌ Room not found</span>`;
+        }
+      });
     }
 
     document.getElementById("joinBtn").onclick = () => {
       let currentName = localStorage.getItem("playerName");
 
-      // If no name stored, check the input
       if (!currentName) {
         const nameInput = document.getElementById("newPlayerName");
         if (nameInput) {
           currentName = nameInput.value.trim();
-          if (currentName) {
+          if (currentName && currentName.length >= 2) {
             localStorage.setItem("playerName", currentName);
-            localStorage.setItem("playerAvatar", "😐"); // Default avatar
+            localStorage.setItem("playerAvatar", "😐");
           }
         }
       }
 
-      if (!currentName) return alert("Please enter your name");
+      if (!currentName || currentName.length < 2) return alert("Please enter a valid name (2+ characters)");
 
-      const roomId = document.getElementById("roomId").value;
+      const roomId = document.getElementById("roomId").value.trim().toUpperCase();
+      if (!roomId) return alert("Please enter a room code");
 
-      socket.emit("joinRoom", { roomId, name: currentName, token: TOKEN }, (res) => {
-        if (!res.ok) return alert(res.err);
-        if (res.token) { localStorage.setItem("playerToken", res.token); }
+      const btn = document.getElementById("joinBtn");
+      btn.disabled = true;
+      btn.innerText = "Joining...";
+
+      socket.emit("joinRoom", {
+        roomId,
+        name: currentName,
+        avatar: localStorage.getItem("playerAvatar") || "😐",
+        token: TOKEN
+      }, (res) => {
+        btn.disabled = false;
+        btn.innerText = "Join Room";
+
+        if (!res.ok) return alert(res.err || "Failed to join");
+        if (res.token) localStorage.setItem("playerToken", res.token);
         localStorage.setItem("roomId", roomId);
-        location.href = 'lobby.html';
+        location.href = "lobby.html";
       });
-    }
+    };
+
+    // Enter key
+    document.getElementById("roomId").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") document.getElementById("joinBtn").click();
+    });
   </script>
-
 </body>
-
 </html>

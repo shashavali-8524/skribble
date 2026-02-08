@@ -1,74 +1,94 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>Game - Skribbl</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
+  <!-- GAME HEADER -->
   <div class="game-header">
-    <button class="back-btn" onclick="goBack()" title="Back to Home">← Back</button>
-    <div>⏳ <span id="timer">0</span>s</div>
-    <div id="wordDisplay" style="letter-spacing: 5px; font-size: 2rem;">SKRIBBL</div>
-    <div>
-      <div id="status" style="font-size: 0.8rem; color: #eee;">Waiting...</div>
-      ✏️ <span id="drawerName">---</span>
+    <div class="header-row header-top-row">
+      <button class="back-btn" onclick="goBack()" title="Leave Game">←</button>
+      <span class="round-info" id="roundInfo">Round ?/?</span>
+      <div class="timer-display" id="timerWrap">⏳ <span id="timer">0</span>s</div>
+      <div class="header-section">
+        <span id="status">Waiting...</span>
+        <span class="drawer-label">✏️ <span id="drawerName">---</span></span>
+      </div>
+    </div>
+    <div class="header-row header-word-row">
+      <div id="wordDisplay">SKRIBBL</div>
     </div>
   </div>
 
+  <!-- GAME LAYOUT -->
   <div class="game-layout">
 
     <!-- Left: Scoreboard -->
-    <div class="scoreboard" id="scoreboard"></div>
+    <div class="scoreboard" id="scoreboard">
+      <div class="scoreboard-title">Players</div>
+    </div>
 
     <!-- Center: Canvas -->
     <div class="canvas-wrap">
       <canvas id="canvas" width="800" height="600"></canvas>
 
       <!-- Drawing Tools -->
-      <div id="tools"
-        style="display:none; padding: 10px; background: #eee; justify-content: center; gap: 10px; border-top: 2px solid #000;">
-        <div class="color-btn" style="background: #000;" onclick="setColor('#000')" title="Black"></div>
-        <div class="color-btn" style="background: #f00;" onclick="setColor('#f00')" title="Red"></div>
-        <div class="color-btn" style="background: #0f0;" onclick="setColor('#0f0')" title="Green"></div>
-        <div class="color-btn" style="background: #00f;" onclick="setColor('#00f')" title="Blue"></div>
-        <div class="color-btn" style="background: #ff0;" onclick="setColor('#ff0')" title="Yellow"></div>
-        <div class="color-btn" style="background: #fff; border: 1px solid #ccc;" onclick="setColor('#fff')" title="White"></div>
-        <button onclick="selectEraser()" id="eraserBtn" style="cursor:pointer; border:1px solid #000; padding: 2px 5px;" title="Eraser">🧹 Eraser</button>
-
-        <!-- Eraser Size Selector -->
-        <div id="eraserSizeSelector" style="display: none; gap: 5px; align-items: center;">
-          <span style="font-size: 0.8rem; font-weight: bold;">Size:</span>
-          <button onclick="setEraserSize(8)" class="eraser-size-btn" id="sizeSmall" title="Small">S</button>
-          <button onclick="setEraserSize(15)" class="eraser-size-btn active" id="sizeMedium" title="Medium">M</button>
-          <button onclick="setEraserSize(25)" class="eraser-size-btn" id="sizeLarge" title="Large">L</button>
+      <div id="tools">
+        <!-- Colors Row -->
+        <div class="tools-row" id="colorRow">
+          <div class="color-btn active" style="background:#000" onclick="setColor('#000')" data-color="#000"></div>
+          <div class="color-btn" style="background:#444" onclick="setColor('#444')" data-color="#444"></div>
+          <div class="color-btn" style="background:#888" onclick="setColor('#888')" data-color="#888"></div>
+          <div class="color-btn" style="background:#e74c3c" onclick="setColor('#e74c3c')" data-color="#e74c3c"></div>
+          <div class="color-btn" style="background:#e67e22" onclick="setColor('#e67e22')" data-color="#e67e22"></div>
+          <div class="color-btn" style="background:#f1c40f" onclick="setColor('#f1c40f')" data-color="#f1c40f"></div>
+          <div class="color-btn" style="background:#2ecc71" onclick="setColor('#2ecc71')" data-color="#2ecc71"></div>
+          <div class="color-btn" style="background:#1abc9c" onclick="setColor('#1abc9c')" data-color="#1abc9c"></div>
+          <div class="color-btn" style="background:#3498db" onclick="setColor('#3498db')" data-color="#3498db"></div>
+          <div class="color-btn" style="background:#9b59b6" onclick="setColor('#9b59b6')" data-color="#9b59b6"></div>
+          <div class="color-btn" style="background:#e91e8f" onclick="setColor('#e91e8f')" data-color="#e91e8f"></div>
+          <div class="color-btn" style="background:#795548" onclick="setColor('#795548')" data-color="#795548"></div>
+          <div class="color-btn" style="background:#fff; border-color:#aaa;" onclick="setColor('#ffffff')" data-color="#ffffff"></div>
         </div>
 
-        <button onclick="selectBucketFill()" id="bucketBtn" style="cursor:pointer; border:1px solid #000; padding: 2px 5px;" title="Bucket Fill">🪣 Bucket</button>
-        <button onclick="clearCanvas()" style="cursor:pointer; border:1px solid #000; padding: 2px 5px;" title="Clear Canvas">🗑️ Clear</button>
+        <!-- Tools Row -->
+        <div class="tools-row">
+          <span class="brush-size-label" id="brushLabel">3px</span>
+          <input type="range" min="1" max="30" value="3" class="brush-size-slider" id="brushSlider"
+            oninput="setBrushSize(this.value)" />
+
+          <span class="tools-divider"></span>
+
+          <button class="tool-btn" id="penBtn" onclick="selectPen()">✏️ Pen</button>
+          <button class="tool-btn" id="eraserBtn" onclick="selectEraser()">🧹 Eraser</button>
+          <button class="tool-btn" id="bucketBtn" onclick="selectBucket()">🪣 Fill</button>
+
+          <span class="tools-divider"></span>
+
+          <button class="tool-btn" id="undoBtn" onclick="undoLast()">↩️ Undo</button>
+          <button class="tool-btn" onclick="clearCanvas()" style="color:#e74c3c;">🗑️ Clear</button>
+        </div>
       </div>
     </div>
 
     <!-- Right: Chat -->
     <div class="chat-box">
       <div id="messages"></div>
-      <div style="padding: 10px; background: #eee;">
-        <input id="chatInput" class="input" placeholder="Type your guess..." style="margin-bottom: 5px;" />
+      <div class="chat-input-wrap">
+        <input id="chatInput" class="input" placeholder="Type your guess..." autocomplete="off" />
+        <button class="chat-send-btn" id="sendBtn" onclick="sendChat()">➤</button>
       </div>
     </div>
-
   </div>
 
-  <button id="sendBtn" style="display:none;"></button>
-
-  <!-- word selection popup -->
+  <!-- Word Selection Popup -->
   <div id="wordChoices" class="word-choice-box"></div>
 
-  <!-- Hidden room info for app.js -->
+  <!-- Hidden room info -->
   <div id="roomInfo" style="display:none;"></div>
 
   <!-- Game Over Overlay -->
@@ -76,13 +96,12 @@
     <div class="game-over-box">
       <h1>🏆 GAME OVER 🏆</h1>
       <div id="finalScoreboard" class="final-scoreboard"></div>
-      <button class="btn" onclick="location.href='index.html'">Back to Home</button>
+      <button class="btn" onclick="location.href='index.html'" style="margin-bottom:0.5rem;">Back to Home</button>
+      <button class="btn btn-secondary" onclick="location.href='lobby.html'" style="font-size:1rem;">Play Again</button>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
-
 </body>
-
 </html>

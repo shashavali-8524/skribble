@@ -1,188 +1,226 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>Lobby</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>Lobby - Skribbl</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .container { max-width: 900px !important; }
+    #chatForm { padding: 8px; background: #f0f0f0; border-top: 2px solid #ddd; display: flex; gap: 6px; }
+    #chatForm .input { margin-bottom: 0; flex: 1; font-size: 16px; }
+    #chatForm button { flex-shrink: 0; }
+    .settings-summary {
+      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+      margin: 0.8rem 0; font-size: 0.9rem; color: #555;
+    }
+    .settings-summary span {
+      background: #f0f0f0; padding: 4px 12px; border-radius: 20px;
+      border: 1px solid #ddd; font-weight: bold;
+    }
+    .waiting-text {
+      color: #888; font-style: italic; text-align: center;
+      padding: 1rem; animation: blink 1.5s infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.5; } }
+  </style>
 </head>
-
 <body>
 
-    <h1 class="title">Lobby</h1>
+  <h1 class="title">Lobby</h1>
 
-    <style>
-        .container {
-            max-width: 900px !important;
-        }
-
-        .lobby-content {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2rem;
-            justify-content: center;
-            align-items: flex-start;
-        }
-
-        .left-panel {
-            flex: 1;
-            min-width: 300px;
-        }
-
-        .right-panel {
-            width: 300px;
-            flex-shrink: 0;
-        }
-
-        .chat-box {
-            height: 400px;
-            /* Override global height if needed, but 500px is fine too. Let's keep consistent style but maybe restrict height for lobby */
-            width: 100%;
-        }
-
-        #chatForm {
-            padding: 10px;
-            background: #eee;
-            border-top: 2px solid #000;
-        }
-    </style>
-
-    <div class="container">
-
-        <div class="lobby-content">
-            <!-- Left Panel: Room Info & Players -->
-            <div class="left-panel">
-                <h2>Room ID: <span id="roomCode" style="color: var(--secondary-color);"></span></h2>
-
-                <h3>Players:</h3>
-                <div id="playerList" style="text-align: left; margin-top: 1rem;"></div>
-
-                <br>
-                <button class="btn" id="startBtn">Start Game</button>
-                <!-- Link Container will be appended here by script -->
-                <div id="linkArea" style="margin-top: 1rem;"></div>
-            </div>
-
-            <!-- Right Panel: Chat -->
-            <div class="right-panel">
-                <div class="chat-box">
-                    <div id="messages"></div>
-                    <form id="chatForm">
-                        <input id="chatInput" class="input" autocomplete="off" placeholder="Type here..."
-                            style="margin-bottom:0;" />
-                    </form>
-                </div>
-            </div>
+  <div class="container">
+    <div class="lobby-content">
+      <!-- Left Panel -->
+      <div class="left-panel">
+        <div class="room-code-display">
+          Room Code: <span class="code" id="roomCode"></span>
         </div>
 
+        <div id="settingsSummary" class="settings-summary"></div>
+
+        <h3 style="color: var(--text-color); text-shadow: none; margin-bottom: 0.5rem;">
+          Players <span id="playerCount" style="color: var(--secondary-color);"></span>
+        </h3>
+        <div id="playerList"></div>
+
+        <div style="margin-top: 1rem;">
+          <button class="btn" id="startBtn" style="display:none;">Start Game</button>
+          <p id="waitMsg" class="waiting-text">Waiting for host to start...</p>
+        </div>
+
+        <!-- Share Link -->
+        <div class="link-share-box" id="linkArea">
+          <div style="font-weight: bold; font-size: 0.85rem; margin-bottom: 6px; color: #555;">Share this link:</div>
+          <input id="shareLink" class="link-input" type="text" readonly />
+          <button class="btn btn-secondary btn-small" id="copyBtn" style="width: 100%;">📋 Copy Invite Link</button>
+        </div>
+      </div>
+
+      <!-- Right Panel: Chat -->
+      <div class="right-panel lobby-chat">
+        <div class="chat-box">
+          <div id="messages"></div>
+          <form id="chatForm">
+            <input id="chatInput" class="input" autocomplete="off" placeholder="Chat..." />
+            <button type="submit" class="chat-send-btn">➤</button>
+          </form>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const roomId = localStorage.getItem("roomId");
-        const name = localStorage.getItem("playerName");
-        let TOKEN = localStorage.getItem("playerToken");
+  <footer class="footer">Made by <a href="https://www.linkedin.com/in/shasha-vali-ab539428a/" target="_blank" rel="noopener">Shasha Vali</a></footer>
 
-        document.getElementById("roomCode").innerText = roomId;
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const roomId = localStorage.getItem("roomId");
+    const name = localStorage.getItem("playerName");
+    const avatar = localStorage.getItem("playerAvatar") || "😐";
+    let TOKEN = localStorage.getItem("playerToken");
+    let isHost = false;
 
-        socket.emit("joinRoom", { roomId, name, token: TOKEN }, (res) => {
-            if (!res.ok) return alert(res.err);
-            render(res.room);
-        });
+    if (!roomId || !name) { alert("Missing session data"); location.href = "index.html"; }
 
-        socket.on("roomUpdate", room => render(room));
-        socket.on("roundStarted", () => location.href = 'game.html');
+    document.getElementById("roomCode").innerText = roomId;
 
-        // Chat Logic
-        const chatForm = document.getElementById("chatForm");
-        const chatInput = document.getElementById("chatInput");
-        const messages = document.getElementById("messages");
+    // Share link
+    const shareUrl = window.location.origin + "/join.html?room=" + roomId;
+    document.getElementById("shareLink").value = shareUrl;
 
-        chatForm.onsubmit = (e) => {
-            e.preventDefault();
-            const text = chatInput.value.trim();
-            if (!text) return;
-
-            socket.emit("chatMessage", { roomId, message: text });
-            chatInput.value = "";
-        };
-
-        socket.on("chatMessage", (msg) => {
-            const div = document.createElement("div");
-            div.innerHTML = `<strong>${msg.from}:</strong> ${msg.text}`;
-            messages.appendChild(div);
-            messages.scrollTop = messages.scrollHeight;
-        });
-
-        function render(room) {
-            document.getElementById("playerList").innerHTML =
-                room.players.map(p => `<div class="player">${p.name} - ${p.score}</div>`).join("");
-
-            const startBtn = document.getElementById("startBtn");
-            if (socket.id === room.host) {
-                startBtn.style.display = "block";
-            } else {
-                startBtn.style.display = "none";
-            }
+    document.getElementById("copyBtn").onclick = async () => {
+      const btn = document.getElementById("copyBtn");
+      try {
+        // Try modern clipboard API first
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+        } else {
+          // Fallback for HTTP / older browsers
+          const input = document.getElementById("shareLink");
+          input.select();
+          input.setSelectionRange(0, 99999);
+          document.execCommand("copy");
         }
+        btn.innerText = "✅ Copied!";
+        btn.style.background = "#27ae60";
+        setTimeout(() => { btn.innerText = "📋 Copy Invite Link"; btn.style.background = ""; }, 2000);
+      } catch (err) {
+        // Ultimate fallback: show prompt
+        prompt("Copy this link:", shareUrl);
+      }
+    };
 
-        startBtn.onclick = () => {
-            socket.emit("startGame", { roomId }, (res) => {
-                if (res && !res.ok) alert("Failed to start game");
-            });
+    // Also copy on link input click
+    document.getElementById("shareLink").onclick = () => document.getElementById("copyBtn").click();
+
+    // Join room
+    socket.emit("joinRoom", { roomId, name, avatar, token: TOKEN }, (res) => {
+      if (!res.ok) { alert(res.err || "Failed to join"); location.href = "index.html"; return; }
+      if (res.token) { TOKEN = res.token; localStorage.setItem("playerToken", TOKEN); }
+      isHost = res.isHost;
+      if (res.room) render(res.room);
+    });
+
+    socket.on("roomUpdate", room => render(room));
+    socket.on("roundStarted", () => location.href = "game.html");
+
+    // Chat
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const messages = document.getElementById("messages");
+
+    chatForm.onsubmit = (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+      socket.emit("chatMessage", { roomId, message: text });
+      chatInput.value = "";
+    };
+
+    socket.on("chatMessage", (msg) => {
+      addMessage(`<strong>${msg.avatar || ""} ${msg.from}:</strong> ${escapeHtml(msg.text)}`);
+    });
+
+    socket.on("systemMessage", (msg) => {
+      addMessage(msg.text, "system-msg");
+    });
+
+    function addMessage(html, cls = "") {
+      const div = document.createElement("div");
+      if (cls) div.className = cls;
+      div.innerHTML = html;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement("div");
+      d.innerText = text;
+      return d.innerHTML;
+    }
+
+    function render(room) {
+      const pl = document.getElementById("playerList");
+      document.getElementById("playerCount").innerText = `(${room.players.length}/${room.settings.maxPlayers})`;
+
+      // Settings summary
+      document.getElementById("settingsSummary").innerHTML = `
+        <span>🔄 ${room.settings.rounds} rounds</span>
+        <span>⏱️ ${room.settings.guessTime}s</span>
+        <span>👥 max ${room.settings.maxPlayers}</span>
+      `;
+
+      const amHost = socket.id === room.host;
+      isHost = amHost;
+
+      pl.innerHTML = room.players.map(p => {
+        const hostBadge = p.id === room.host ? '<span class="host-badge">HOST</span>' : '';
+        const kickBtn = amHost && p.id !== socket.id ?
+          `<button class="kick-btn" onclick="kick('${p.id}')">Kick</button>` : '';
+        return `
+          <div class="player">
+            <div class="player-info">
+              <span>${p.avatar || "😐"}</span>
+              <span>${escapeHtml(p.name)}</span>
+              ${hostBadge}
+            </div>
+            ${kickBtn}
+          </div>`;
+      }).join("");
+
+      const startBtn = document.getElementById("startBtn");
+      const waitMsg = document.getElementById("waitMsg");
+
+      if (amHost) {
+        startBtn.style.display = "block";
+        waitMsg.style.display = "none";
+        startBtn.disabled = room.players.length < 2;
+        startBtn.innerText = room.players.length < 2 ? "Need 2+ Players" : "Start Game";
+      } else {
+        startBtn.style.display = "none";
+        waitMsg.style.display = "block";
+      }
+    }
+
+    document.getElementById("startBtn").onclick = () => {
+      const btn = document.getElementById("startBtn");
+      btn.disabled = true;
+      btn.innerText = "Starting...";
+      socket.emit("startGame", { roomId }, (res) => {
+        if (res && !res.ok) {
+          alert(res.err || "Failed to start");
+          btn.disabled = false;
+          btn.innerText = "Start Game";
         }
+      });
+    };
 
-        // Generate and display room link
-        const linkContainer = document.createElement("div");
-        linkContainer.style.display = "flex";
-        linkContainer.style.flexDirection = "column";
-        linkContainer.style.alignItems = "center";
-        linkContainer.style.gap = "0.5rem";
-
-        const linkInput = document.createElement("input");
-        linkInput.type = "text";
-        linkInput.readOnly = true;
-        linkInput.value = window.location.origin + '/join.html?room=' + roomId;
-        linkInput.className = "input";
-        linkInput.style.width = "100%";
-        // linkInput.style.maxWidth = "300px"; // Let it fill
-        linkInput.style.textAlign = "center";
-        linkInput.style.fontSize = "0.9rem";
-        linkInput.style.cursor = "pointer";
-
-        const copyBtn = document.createElement("button");
-        copyBtn.innerText = "Copy Link";
-        copyBtn.className = "btn btn-secondary";
-        copyBtn.style.fontSize = "0.9rem";
-        copyBtn.style.padding = "0.5rem 1rem";
-
-        copyBtn.onclick = () => {
-            linkInput.select();
-            linkInput.setSelectionRange(0, 99999); // For mobile devices
-            navigator.clipboard.writeText(linkInput.value).then(() => {
-                const originalText = copyBtn.innerText;
-                copyBtn.innerText = "Copied!";
-                setTimeout(() => copyBtn.innerText = originalText, 2000);
-            }).catch(err => {
-                console.error('Failed to copy: ', err);
-                alert("Failed to copy link");
-            });
-        };
-
-        // Also copy on input click
-        linkInput.onclick = () => {
-            linkInput.select();
-            document.execCommand("copy"); // Fallback
-            navigator.clipboard.writeText(linkInput.value);
-        }
-
-        linkContainer.appendChild(linkInput);
-        linkContainer.appendChild(copyBtn);
-
-        // Append to specific area
-        document.getElementById("linkArea").appendChild(linkContainer);
-    </script>
-
+    function kick(playerId) {
+      if (confirm("Kick this player?")) {
+        socket.emit("kickPlayer", { roomId, playerId });
+      }
+    }
+  </script>
 </body>
-
 </html>
