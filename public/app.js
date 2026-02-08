@@ -15,6 +15,19 @@ document.getElementById("roomInfo").innerText = "Room: " + ROOM;
 
 // Join room logic moved to end of file to ensure listeners are ready
 
+// ======================================
+// BACK BUTTON
+// ======================================
+function goBack() {
+  if (confirm("Are you sure you want to leave the game?")) {
+    localStorage.removeItem("roomId");
+    localStorage.removeItem("playerName");
+    localStorage.removeItem("playerAvatar");
+    // Don't remove token - keep it for future sessions
+    window.location.href = "index.html";
+  }
+}
+
 
 // ======================================
 // SCOREBOARD UPDATE
@@ -56,8 +69,19 @@ ctx.lineCap = "round";
 
 canvas.addEventListener("mousedown", (e) => {
   if (!canDraw) return;
-  drawing = true;
-  [lastX, lastY] = [e.offsetX, e.offsetY];
+
+  if (currentTool === "bucket") {
+    floodFill(e.offsetX, e.offsetY, currentColor);
+    socket.emit("bucketFill", {
+      roomId: ROOM,
+      x: e.offsetX,
+      y: e.offsetY,
+      color: currentColor
+    });
+  } else {
+    drawing = true;
+    [lastX, lastY] = [e.offsetX, e.offsetY];
+  }
 });
 
 canvas.addEventListener("mousemove", (e) => {
@@ -86,9 +110,21 @@ function getTouchPos(canvasDom, touchEvent) {
 canvas.addEventListener("touchstart", (e) => {
   if (!canDraw) return;
   e.preventDefault(); // Prevent scrolling
-  drawing = true;
+
   const pos = getTouchPos(canvas, e);
-  [lastX, lastY] = [pos.x, pos.y];
+
+  if (currentTool === "bucket") {
+    floodFill(pos.x, pos.y, currentColor);
+    socket.emit("bucketFill", {
+      roomId: ROOM,
+      x: pos.x,
+      y: pos.y,
+      color: currentColor
+    });
+  } else {
+    drawing = true;
+    [lastX, lastY] = [pos.x, pos.y];
+  }
 }, { passive: false });
 
 canvas.addEventListener("touchmove", (e) => {
@@ -118,6 +154,10 @@ function drawLine(x0, y0, x1, y1, emit) {
 
 socket.on("drawingData", (data) => {
   drawLine(data.x0, data.y0, data.x1, data.y1, false);
+});
+
+socket.on("bucketFill", (data) => {
+  floodFill(data.x, data.y, data.color);
 });
 
 
@@ -161,10 +201,53 @@ socket.on("roundStarted", ({ drawerId, drawerName }) => {
 });
 
 // Tools
+let currentTool = "pen"; // "pen", "eraser", or "bucket"
+let currentColor = "#000";
+let eraserSize = 15; // Default eraser size
+
 function setColor(c) {
+  currentColor = c;
+  currentTool = "pen";
   ctx.strokeStyle = c;
-  // Eraser is just white color, but maybe we want thicker line?
-  ctx.lineWidth = c === '#fff' ? 20 : 3;
+  ctx.lineWidth = 3;
+  document.getElementById("eraserBtn").style.background = "";
+  document.getElementById("bucketBtn").style.background = "";
+  document.getElementById("eraserSizeSelector").style.display = "none";
+}
+
+function selectEraser() {
+  currentTool = "eraser";
+  currentColor = null;
+  ctx.strokeStyle = "rgba(255,255,255,1)";
+  ctx.lineWidth = eraserSize;
+  document.getElementById("eraserBtn").style.background = "#ddd";
+  document.getElementById("bucketBtn").style.background = "";
+  document.getElementById("eraserSizeSelector").style.display = "flex";
+}
+
+function setEraserSize(size) {
+  eraserSize = size;
+  ctx.lineWidth = size;
+
+  // Update button styling
+  document.getElementById("sizeSmall").classList.remove("active");
+  document.getElementById("sizeMedium").classList.remove("active");
+  document.getElementById("sizeLarge").classList.remove("active");
+
+  if (size === 8) {
+    document.getElementById("sizeSmall").classList.add("active");
+  } else if (size === 15) {
+    document.getElementById("sizeMedium").classList.add("active");
+  } else if (size === 25) {
+    document.getElementById("sizeLarge").classList.add("active");
+  }
+}
+
+function selectBucketFill() {
+  currentTool = "bucket";
+  document.getElementById("bucketBtn").style.background = "#ddd";
+  document.getElementById("eraserBtn").style.background = "";
+  document.getElementById("eraserSizeSelector").style.display = "none";
 }
 
 function clearCanvas() {
@@ -176,6 +259,88 @@ function clearCanvas() {
 socket.on("clearCanvas", () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 });
+
+// Flood fill algorithm for bucket tool
+function floodFill(startX, startY, fillColor) {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Get color at starting position
+  const startIdx = (Math.floor(startY) * width + Math.floor(startX)) * 4;
+  const targetColor = {
+    r: data[startIdx],
+    g: data[startIdx + 1],
+    b: data[startIdx + 2],
+    a: data[startIdx + 3]
+  };
+
+  // Convert fill color to RGB
+  const fillRGB = hexToRgb(fillColor);
+
+  // Check if target and fill colors are the same
+  if (
+    targetColor.r === fillRGB.r &&
+    targetColor.g === fillRGB.g &&
+    targetColor.b === fillRGB.b &&
+    targetColor.a === 255
+  ) {
+    return; // No need to fill
+  }
+
+  const stack = [[Math.floor(startX), Math.floor(startY)]];
+
+  while (stack.length > 0) {
+    const [x, y] = stack.pop();
+
+    if (x < 0 || x >= width || y < 0 || y >= height) continue;
+
+    const idx = (y * width + x) * 4;
+    const pixelColor = {
+      r: data[idx],
+      g: data[idx + 1],
+      b: data[idx + 2],
+      a: data[idx + 3]
+    };
+
+    // Check if pixel matches target color
+    if (
+      pixelColor.r !== targetColor.r ||
+      pixelColor.g !== targetColor.g ||
+      pixelColor.b !== targetColor.b ||
+      pixelColor.a !== targetColor.a
+    ) {
+      continue;
+    }
+
+    // Fill pixel
+    data[idx] = fillRGB.r;
+    data[idx + 1] = fillRGB.g;
+    data[idx + 2] = fillRGB.b;
+    data[idx + 3] = 255;
+
+    // Add neighbors to stack
+    stack.push([x + 1, y]);
+    stack.push([x - 1, y]);
+    stack.push([x, y + 1]);
+    stack.push([x, y - 1]);
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// Helper function to convert hex color to RGB
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      }
+    : { r: 0, g: 0, b: 0 };
+}
 
 
 // ======================================

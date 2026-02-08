@@ -414,6 +414,10 @@ io.on("connection", socket => {
     socket.to(roomId).emit("clearCanvas");
   });
 
+  socket.on("bucketFill", ({ roomId, x, y, color }) => {
+    socket.to(roomId).emit("bucketFill", { x, y, color });
+  });
+
   /* -----------------------------
      CHAT (GUESSING)
   ------------------------------ */
